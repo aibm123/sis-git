@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIS Platform - Nền tảng học tập thông minh</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #d1d5db;
+        }
+        .sidebar-icon { transition: all 0.2s ease-in-out; }
+        .sidebar-icon:hover { background-color: #374151; transform: scale(1.1); }
+        .active-sidebar-icon { background-color: #4f46e5; color: white; }
+        .page { display: none; height: 100%; }
+        .active-page { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .glass-card {
+            background: rgba(31, 41, 55, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+        }
+        .tab-button { transition: all 0.2s ease-in-out; }
+        .active-tab-button { background-color: #4f46e5; color: white; }
+        .tab-content { display: none; }
+        .active-tab-content { display: block; }
+        .loader {
+            border: 4px solid #374151;
+            border-top: 4px solid #6366f1;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .chat-bubble { max-width: 80%; }
+        .user-bubble { background-color: #4f46e5; color: white; align-self: flex-end; }
+        .gemini-bubble { background-color: #374151; color: #d1d5db; align-self: flex-start; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+        .hidden { display: none !important; }
+        .modal-backdrop {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-content {
+            width: 90%;
+            max-width: 500px;
+        }
+        /* Fix for chatbox height */
+        #agent .glass-card {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        #chat-log {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        .ai-gen-btn {
+            background-color: #7c3aed;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            margin-top: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: background-color 0.2s;
+        }
+        .ai-gen-btn:hover {
+            background-color: #6d28d9;
+        }
+        .ai-gen-btn:disabled {
+            background-color: #585066;
+            cursor: not-allowed;
+        }
+        .collapsible-header {
+            cursor: pointer;
+        }
+        .collapsible-content {
+            display: none;
+            padding-left: 1rem;
+            margin-top: 0.5rem;
+        }
+        .collapsible-content.show {
+            display: block;
+        }
+    </style>
+</head>
+<body class="h-screen overflow-hidden">
+
+    <!-- Login Page -->
+    <div id="login-page" class="w-full h-full flex items-center justify-center bg-gray-900">
+        <div class="glass-card w-full max-w-sm p-8">
+            <h1 class="text-3xl font-bold text-white text-center mb-6">SIS Login</h1>
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="email" class="block text-gray-300 text-sm font-bold mb-2">Email</label>
+                    <input type="email" id="email" name="email" class="w-full bg-gray-800 text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" required value="admin@gmail.com">
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-gray-300 text-sm font-bold mb-2">Mật khẩu</label>
+                    <input type="password" id="password" name="password" class="w-full bg-gray-800 text-white rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" required value="123">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition">Đăng nhập</button>
+                <p id="login-error" class="text-red-500 text-center mt-4 text-sm"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- App Container -->
+    <div id="app-container" class="hidden w-full h-full flex">
+        <!-- Sidebar -->
+        <aside class="w-20 bg-gray-900 p-4 flex flex-col items-center justify-between">
+            <div>
+                <div class="text-indigo-400 font-bold text-2xl mb-6">SIS</div>
+                <nav class="flex flex-col space-y-4">
+                    <button onclick="switchPage('agent')" class="sidebar-icon active-sidebar-icon p-3 rounded-xl" title="Trợ lý học tập"><i class="fa-solid fa-person-chalkboard fa-fw text-xl"></i></button>
+                    <button onclick="switchPage('class')" class="sidebar-icon p-3 rounded-xl" title="Lớp học"><i class="fa-solid fa-school fa-fw text-xl"></i></button>
+                    <button id="intelligence-nav" onclick="switchPage('intelligence')" class="sidebar-icon p-3 rounded-xl" title="Quản lý"><i class="fa-solid fa-brain fa-fw text-xl"></i></button>
+                </nav>
+            </div>
+            <button onclick="handleLogout()" title="Đăng xuất" class="sidebar-icon p-3 rounded-xl"><i class="fa-solid fa-right-from-bracket fa-fw text-xl"></i></button>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-8 overflow-y-auto">
+             <!-- PAGE: Trợ lý học tập (Chatbot) -->
+            <div id="agent" class="page active-page">
+                <div class="h-full flex flex-col">
+                    <div class="flex justify-between items-center mb-4 flex-shrink-0">
+                        <h1 class="text-3xl font-bold text-white">Trợ lý học tập</h1>
+                         <div class="flex items-center space-x-4">
+                            <div id="user-info" class="text-gray-300 text-sm font-semibold"></div>
+                            <button onclick="newConversation()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg transition flex items-center space-x-2"><i class="fa-solid fa-plus"></i><span>Hội thoại mới</span></button>
+                        </div>
+                    </div>
+                    <div class="glass-card flex-grow p-4">
+                        <div id="chat-log" class="flex-grow overflow-y-auto p-4 space-y-4 flex flex-col">
+                            <!-- Chat messages will be appended here -->
+                        </div>
+                         <div id="image-preview-container" class="p-2 hidden">
+                            <img id="image-preview" src="" class="max-h-24 rounded-lg" />
+                            <button onclick="removeImagePreview()" class="text-red-500 text-xs">Xóa ảnh</button>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-gray-700 flex-shrink-0">
+                            <form id="agent-form" class="flex items-center bg-gray-900 rounded-lg p-2">
+                                <input type="file" id="image-upload" class="hidden" accept="image/*">
+                                <button type="button" onclick="document.getElementById('image-upload').click()" class="text-gray-400 hover:text-white p-2 rounded-lg"><i class="fa-solid fa-image"></i></button>
+                                <textarea id="agent-prompt" class="flex-grow bg-transparent text-white focus:outline-none resize-none mx-2" rows="1" placeholder="Nhập yêu cầu hoặc tải ảnh lên..."></textarea>
+                                <button id="agent-submit-btn" type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold p-2 rounded-lg"><i class="fa-solid fa-paper-plane"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: Lớp học -->
+            <div id="class" class="page">
+                <h1 class="text-3xl font-bold text-white mb-8">Lớp học</h1>
+                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="md:col-span-1 glass-card p-6">
+                        <div class="flex justify-between items-center mb-4">
+                             <h2 class="text-xl font-semibold text-white">Danh sách Đề cương</h2>
+                        </div>
+                        <ul id="syllabus-list" class="space-y-2"></ul>
+                    </div>
+                    <div id="syllabus-content-wrapper" class="md:col-span-2 glass-card p-6 overflow-y-auto">
+                        <div id="syllabus-content"></div>
+                        <hr id="syllabus-divider" class="my-4 border-gray-600 hidden">
+                        <div id="syllabus-exercises"></div>
+                        <div id="ai-help-container" class="mt-6 hidden">
+                            <button id="ai-help-btn" class="ai-gen-btn w-full justify-center text-base py-2">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> AI Hướng dẫn giải bài tập
+                            </button>
+                            <div id="ai-help-response" class="mt-4 bg-gray-900 p-4 rounded-lg hidden"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAGE: Quản lý -->
+            <div id="intelligence" class="page">
+                <h1 class="text-3xl font-bold text-white mb-8">Trung tâm quản lý</h1>
+                <div class="mb-6 border-b border-gray-700">
+                    <nav class="flex space-x-1 sm:space-x-4" aria-label="Tabs">
+                        <button onclick="switchTab(event, 'db')" class="tab-button active-tab-button px-3 py-2 text-sm font-medium rounded-t-lg">Dashboard</button>
+                        <button onclick="switchTab(event, 'knowledge')" class="tab-button px-3 py-2 text-sm font-medium rounded-t-lg">Knowledge</button>
+                        <button onclick="switchTab(event, 'automation')" class="tab-button px-3 py-2 text-sm font-medium rounded-t-lg">Automation</button>
+                    </nav>
+                </div>
+
+                <div id="db" class="tab-content active-tab-content">
+                    <div id="dashboard-stats" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+                    <div class="glass-card p-6 mt-6">
+                        <h3 class="text-lg font-semibold text-white mb-4">Quản lý Đề cương Học sinh</h3>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                             <div>
+                                <div class="flex justify-between items-center mb-3">
+                                    <h4 class="text-md font-semibold text-gray-300">Danh sách Học sinh</h4>
+                                    <button onclick="openModal('nguoidung')" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">Thêm học sinh</button>
+                                </div>
+                                <ul id="dashboard-users-list" class="space-y-2"></ul>
+                             </div>
+                             <div id="dashboard-syllabus-details" class="bg-gray-800 p-4 rounded-lg">
+                                <p class="text-gray-400">Chọn một học sinh để xem chi tiết.</p>
+                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="knowledge" class="tab-content">
+                    <div class="glass-card p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-lg font-semibold text-white">Kho tài liệu</h4>
+                            <button onclick="openModal('giaokhoa')" class="bg-indigo-600 p-2 rounded-lg text-sm hover:bg-indigo-700" title="Thêm tài liệu mới"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                        <ul id="knowledge-list" class="space-y-3"></ul>
+                    </div>
+                </div>
+                <div id="automation" class="tab-content">
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="glass-card p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-white">Phương pháp học tập</h3>
+                                <button onclick="openModal('thoiquen')" class="bg-indigo-600 p-2 rounded-lg text-sm" title="Tạo phương pháp mới">Tạo mới</button>
+                            </div>
+                            <ul id="automation-processes" class="space-y-3"></ul>
+                        </div>
+                        <div class="glass-card p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-white">Phương pháp kiểm tra</h3>
+                                <button onclick="openModal('kiemtra')" class="bg-indigo-600 p-2 rounded-lg text-sm" title="Tạo phương pháp mới">Tạo mới</button>
+                            </div>
+                            <ul id="automation-projects" class="space-y-3"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Generic Modal -->
+    <div id="generic-modal" class="modal-backdrop hidden">
+        <div class="glass-card modal-content p-6 overflow-y-auto max-h-screen">
+            <h2 id="modal-title" class="text-xl font-bold mb-4"></h2>
+            <form id="modal-form">
+                <input type="hidden" id="modal-item-id">
+                <input type="hidden" id="modal-item-type">
+                <div id="modal-body" class="space-y-4">
+                    <!-- Form fields will be injected here -->
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal()" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">Hủy</button>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        // --- API CONFIG ---
+        const API_HOST = 'https://api.baserow.io';
+        const API_TOKEN = 'FmlJc4rPwnuyj8VNOxTZr5ARngtKJqe3';
+        const GEMINI_API_KEY = ''; // IMPORTANT: Leave this empty, it will be handled by the environment.
+        const TABLE_IDS = {
+            nguoidung: 667048,
+            decuong: 667052,
+            giaokhoa: 667053,
+            thoiquen: 667054,
+            kiemtra: 667055,
+        };
+
+        // --- GLOBAL STATE ---
+        let currentUser = null;
+        let allStudents = [];
+        let allSyllabuses = [];
+        let allLearningMethods = [];
+        let allAssessmentMethods = [];
+        let studentRoleId = null;
+        let chatHistory = [];
+        let imageBase64 = null;
+        let currentDashboardUserId = null;
+
+
+        // --- DOM ELEMENTS ---
+        const loginPage = document.getElementById('login-page');
+        const appContainer = document.getElementById('app-container');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const userInfo = document.getElementById('user-info');
+        const agentForm = document.getElementById('agent-form');
+        const agentPrompt = document.getElementById('agent-prompt');
+        const chatLog = document.getElementById('chat-log');
+        const imageUpload = document.getElementById('image-upload');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const imagePreview = document.getElementById('image-preview');
+
+        // --- API HELPERS ---
+        async function baserowAPI(method, tableId, rowId = '', data = null) {
+            const url = `${API_HOST}/api/database/rows/table/${tableId}/${rowId}?user_field_names=true`;
+            const headers = { 
+                'Authorization': `Token ${API_TOKEN}`,
+                'Content-Type': 'application/json'
+            };
+            const options = { method, headers };
+            if (data) options.body = JSON.stringify(data);
+
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error(`Baserow API Error (${response.status}):`, errorData);
+                throw new Error(`API request failed with status ${response.status}`);
+            }
+            return method === 'DELETE' ? response : response.json();
+        }
+
+        async function callGemini(prompt) {
+             const payload = { contents: [{ parts: [{ text: prompt }] }] };
+             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`;
+             const response = await fetch(apiUrl, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify(payload)
+             });
+             if (!response.ok) throw new Error(`Gemini API error: ${response.statusText}`);
+             const result = await response.json();
+             return result.candidates[0].content.parts[0].text;
+        }
+
+        // --- AUTH & INITIALIZATION ---
+        loginForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            loginError.textContent = '';
+            const submitButton = loginForm.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.innerHTML;
+            submitButton.innerHTML = `<div class="loader mx-auto"></div>`;
+            submitButton.disabled = true;
+
+            try {
+                const data = await baserowAPI('GET', TABLE_IDS.nguoidung);
+                const foundUser = data.results.find(u => u.email === loginForm.email.value && u.pass === loginForm.password.value);
+
+                if (foundUser) {
+                    currentUser = foundUser;
+                    loginPage.classList.add('hidden');
+                    appContainer.classList.remove('hidden');
+                    const role = currentUser.role?.value === 'admin' ? 'admin' : 'student';
+                    initializeApp(role);
+                } else {
+                    loginError.textContent = 'Email hoặc mật khẩu không đúng.';
+                }
+            } catch (error) {
+                loginError.textContent = 'Đã xảy ra lỗi. Vui lòng thử lại.';
+            } finally {
+                submitButton.innerHTML = originalButtonText;
+                submitButton.disabled = false;
+            }
+        });
+
+        function handleLogout() {
+            currentUser = null;
+            loginPage.classList.remove('hidden');
+            appContainer.classList.add('hidden');
+            loginForm.reset();
+        }
+
+        async function initializeApp(role) {
+            userInfo.textContent = `Xin chào, ${currentUser.email}`;
+            document.getElementById('intelligence-nav').style.display = (role === 'admin') ? 'flex' : 'none';
+            switchPage('agent');
+            newConversation();
+            await fetchAndRenderAll();
+        }
+
+        async function fetchAndRenderAll() {
+            if (currentUser.role?.value === 'admin') {
+                const [usersData, syllabusesData, knowledgeData, automationThoiquen, automationKiemtra] = await Promise.all([
+                    baserowAPI('GET', TABLE_IDS.nguoidung),
+                    baserowAPI('GET', TABLE_IDS.decuong),
+                    baserowAPI('GET', TABLE_IDS.giaokhoa),
+                    baserowAPI('GET', TABLE_IDS.thoiquen),
+                    baserowAPI('GET', TABLE_IDS.kiemtra)
+                ]);
+                
+                allSyllabuses = syllabusesData.results;
+                allStudents = usersData.results.filter(u => u.role?.value !== 'admin');
+                const studentWithRole = usersData.results.find(u => u.role?.value === 'student');
+                if (studentWithRole) studentRoleId = studentWithRole.role.id;
+                
+                allLearningMethods = [...new Set(automationThoiquen.results.map(item => item.phuongphap))];
+                allAssessmentMethods = [...new Set(automationKiemtra.results.map(item => item.phuongphap))];
+
+                renderSyllabuses();
+                renderDashboard(knowledgeData);
+                renderKnowledge(knowledgeData);
+                renderAutomation(automationThoiquen.results, automationKiemtra.results);
+
+            } else { // Student view
+                 const syllabusesData = await baserowAPI('GET', TABLE_IDS.decuong);
+                 allSyllabuses = syllabusesData.results;
+                 renderSyllabuses();
+            }
+        }
+        
+        // --- PAGE/TAB NAVIGATION ---
+        function switchPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active-page'));
+            document.getElementById(pageId)?.classList.add('active-page');
+            document.querySelectorAll('.sidebar-icon').forEach(b => {
+                b.classList.remove('active-sidebar-icon');
+                if (b.getAttribute('onclick')?.includes(`'${pageId}'`)) b.classList.add('active-sidebar-icon');
+            });
+             if (pageId === 'intelligence' && currentUser.role?.value === 'admin') { 
+                switchTab({ currentTarget: document.querySelector('#intelligence .tab-button') }, 'db'); 
+            } 
+        }
+        
+        function switchTab(event, tabId) {
+            document.querySelectorAll('#intelligence .tab-content').forEach(tc => tc.classList.remove('active-tab-content'));
+            document.querySelectorAll('#intelligence .tab-button').forEach(tb => tb.classList.remove('active-tab-button'));
+            document.getElementById(tabId)?.classList.add('active-tab-content');
+            event.currentTarget?.classList.add('active-tab-button');
+        }
+
+        // --- CHATBOT (GEMINI) LOGIC ---
+        function newConversation() {
+            chatLog.innerHTML = `<div class="chat-bubble gemini-bubble p-4 rounded-lg"><p>Xin chào! Tôi là trợ lý học tập SIS, tôi có thể giúp gì cho bạn hôm nay?</p></div>`;
+            chatHistory = [{ role: "user", parts: [{ text: "Hãy là một trợ lý học tập tên là SIS, nhiệt tình và thân thiện." }] }, { role: "model", parts: [{ text: "Tuyệt vời! Tôi là SIS, sẵn sàng giúp bạn." }] }];
+            agentPrompt.value = '';
+            removeImagePreview();
+        }
+
+        agentPrompt.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                agentForm.requestSubmit();
+            }
+        });
+        
+        imageUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                imageBase64 = reader.result.split(',')[1];
+                imagePreview.src = reader.result;
+                imagePreviewContainer.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function removeImagePreview() {
+            imageBase64 = null; imageUpload.value = ''; imagePreview.src = '';
+            imagePreviewContainer.classList.add('hidden');
+        }
+
+        agentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const promptText = agentPrompt.value.trim();
+            if (!promptText && !imageBase64) return;
+
+            appendMessage(promptText, 'user', imageBase64 ? imagePreview.src : null);
+            agentPrompt.value = '';
+            
+            const loaderBubble = appendMessage('', 'gemini-loading');
+            
+            try {
+                let context = "";
+                if (promptText.toLowerCase().includes("đề cương") || promptText.toLowerCase().includes("bài tập")) {
+                     context += "Đây là danh sách đề cương hiện có:\n" + allSyllabuses.map(d => `- ${d.Name}: ${d.Notes.substring(0,100)}...`).join("\n");
+                }
+                const fullPrompt = context ? `Dựa vào thông tin sau:\n${context}\n\nHãy trả lời câu hỏi của người dùng: "${promptText}"` : promptText;
+                chatHistory.push({ role: "user", parts: [{ text: fullPrompt }] });
+                const payload = { contents: chatHistory };
+                 if (imageBase64) {
+                    payload.contents[payload.contents.length - 1].parts.push({
+                        inlineData: { mimeType: "image/jpeg", data: imageBase64 }
+                    });
+                }
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${GEMINI_API_KEY}`;
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) throw new Error(`Gemini API error: ${response.statusText}`);
+                const result = await response.json();
+                const modelResponse = result.candidates[0].content.parts[0].text;
+                chatHistory.push({ role: "model", parts: [{ text: modelResponse }] });
+                loaderBubble.remove();
+                appendMessage(modelResponse, 'gemini');
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                loaderBubble.innerHTML = `<p class="text-red-400">Rất tiếc, đã có lỗi xảy ra. Vui lòng thử lại.</p>`;
+            } finally {
+                 removeImagePreview();
+            }
+        });
+
+        function appendMessage(text, type, imgSrc = null) {
+            const bubble = document.createElement('div');
+            bubble.classList.add('chat-bubble', 'p-4', 'rounded-lg', 'w-fit');
+            let contentHTML = `<p>${text.replace(/\n/g, '<br>')}</p>`;
+            if (imgSrc) contentHTML = `<img src="${imgSrc}" class="max-w-xs rounded-lg mb-2" />` + contentHTML;
+            if (type === 'user') bubble.classList.add('user-bubble');
+            else if (type === 'gemini') bubble.classList.add('gemini-bubble');
+            else if (type === 'gemini-loading') {
+                bubble.classList.add('gemini-bubble');
+                contentHTML = `<div class="loader"></div>`;
+            }
+            bubble.innerHTML = contentHTML;
+            chatLog.appendChild(bubble);
+            chatLog.scrollTop = chatLog.scrollHeight;
+            return bubble;
+        }
+
+        // --- RENDER & CRUD: Đề cương (Syllabus) ---
+        function renderSyllabuses() {
+            let syllabusesToRender = allSyllabuses;
+            if (currentUser.role?.value !== 'admin') {
+                syllabusesToRender = allSyllabuses.filter(s => s.nguoidung.some(u => u.id === currentUser.id));
+            }
+            const listEl = document.getElementById('syllabus-list');
+            listEl.innerHTML = syllabusesToRender.map(s => `
+                <li class="group flex items-center justify-between bg-gray-800 rounded-lg">
+                    <a href="#" onclick="showSyllabus(event, ${s.id})" data-syllabus-id="${s.id}" class="block p-3 flex-grow">${s.Name}
+                        ${currentUser.role?.value === 'admin' ? `<span class="text-xs text-gray-400 ml-2">(${s.nguoidung.map(u => u.value).join(', ')})</span>` : ''}
+                    </a>
+                </li>
+            `).join('');
+            if (syllabusesToRender.length > 0) showSyllabus(null, syllabusesToRender[0].id);
+            else {
+                document.getElementById('syllabus-content').innerHTML = '<p>Không có đề cương nào.</p>';
+                document.getElementById('syllabus-exercises').innerHTML = '';
+                document.getElementById('syllabus-divider').classList.add('hidden');
+                document.getElementById('ai-help-container').classList.add('hidden');
+            }
+        }
+
+        async function showSyllabus(event, id) {
+            event?.preventDefault();
+            try {
+                const syllabus = await baserowAPI('GET', TABLE_IDS.decuong, `${id}/`);
+                document.getElementById('syllabus-content').innerHTML = syllabus.Notes;
+                document.getElementById('syllabus-exercises').innerHTML = `<h3 class="font-bold text-lg mb-2">Bài tập:</h3><p>${syllabus.baitap || 'Chưa có bài tập.'}</p>`;
+                document.getElementById('syllabus-divider').classList.remove('hidden');
+                document.querySelectorAll('#syllabus-list a').forEach(el => el.parentElement.classList.remove('bg-indigo-600'));
+                document.querySelector(`#syllabus-list a[data-syllabus-id='${id}']`)?.parentElement.classList.add('bg-indigo-600');
+                
+                const aiHelpContainer = document.getElementById('ai-help-container');
+                aiHelpContainer.classList.remove('hidden');
+                document.getElementById('ai-help-btn').onclick = () => getAIHelp(syllabus);
+                document.getElementById('ai-help-response').classList.add('hidden');
+            } catch (error) { console.error('Failed to show syllabus:', error); }
+        }
+
+        async function getAIHelp(syllabus) {
+            const btn = document.getElementById('ai-help-btn');
+            const responseContainer = document.getElementById('ai-help-response');
+            btn.disabled = true;
+            btn.innerHTML = `<div class="loader w-5 h-5"></div> Đang tạo hướng dẫn...`;
+            responseContainer.classList.remove('hidden');
+            responseContainer.innerHTML = `<p>AI đang suy nghĩ...</p>`;
+            try {
+                const prompt = `Với vai trò là một gia sư chuyên nghiệp, dựa vào đề cương và bài tập sau, hãy đưa ra định hướng giải bài chi tiết từng bước cho học viên. Giọng văn thân thiện, khuyến khích.\n\nĐề cương:\n${syllabus.Notes}\n\nBài tập:\n${syllabus.baitap}`;
+                const response = await callGemini(prompt);
+                responseContainer.innerHTML = `<p>${response.replace(/\n/g, '<br>')}</p>`;
+            } catch (e) {
+                responseContainer.innerHTML = `<p class="text-red-400">Lỗi! Không thể nhận được hướng dẫn từ AI.</p>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> AI Hướng dẫn giải bài tập`;
+            }
+        }
+        
+        // --- RENDER: Dashboard, Knowledge, Automation (Admin only) ---
+        function renderDashboard(knowledgeData) {
+            document.getElementById('dashboard-stats').innerHTML = `
+                <div class="glass-card p-6 text-center"><p class="text-gray-400">Tổng số Học sinh</p><p class="text-4xl font-bold text-cyan-400 mt-2">${allStudents.length}</p></div>
+                <div class="glass-card p-6 text-center"><p class="text-gray-400">Tổng số Đề cương</p><p class="text-4xl font-bold text-yellow-400 mt-2">${allSyllabuses.length}</p></div>
+                <div class="glass-card p-6 text-center"><p class="text-gray-400">Tổng Kho tài liệu</p><p class="text-4xl font-bold text-green-400 mt-2">${knowledgeData.results.length}</p></div>`;
+            
+            const userListEl = document.getElementById('dashboard-users-list');
+            userListEl.innerHTML = allStudents.map(u => `
+                <li class="group flex items-center justify-between bg-gray-700 p-0 rounded-lg">
+                    <a href="#" onclick="showStudentSyllabuses(event, ${u.id}, '${u.email}')" class="flex-grow p-3">${u.email}</a>
+                    <div class="flex items-center space-x-2 pr-3">
+                        <button onclick="openModal('nguoidung', ${u.id})" class="text-blue-400 hover:text-blue-300"><i class="fa-solid fa-pencil"></i></button>
+                        <button onclick="handleDelete('nguoidung', ${u.id})" class="text-red-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </li>`).join('');
+        }
+        
+        function showStudentSyllabuses(event, userId, userName) {
+            event.preventDefault();
+            currentDashboardUserId = userId; // Keep track of selected user
+            const detailsEl = document.getElementById('dashboard-syllabus-details');
+            const studentSyllabuses = allSyllabuses.filter(s => s.nguoidung.some(u => u.id === userId));
+            let html = `<div class="flex justify-between items-center mb-3">
+                            <h4 class="text-md font-semibold text-white">Đề cương của ${userName}</h4>
+                            <button onclick="openModal('decuong', null, ${userId})" class="bg-indigo-600 text-white px-3 py-1 rounded text-sm">Tạo mới</button>
+                        </div>`;
+            if (studentSyllabuses.length > 0) {
+                 html += `<ul class="space-y-2">` + studentSyllabuses.map(s => `
+                    <li class="group bg-gray-900 p-3 rounded-lg flex justify-between items-center">
+                        <span>${s.Name}</span>
+                        <div class="flex items-center space-x-2">
+                           <button onclick="openModal('decuong', ${s.id})" class="text-blue-400 hover:text-blue-300"><i class="fa-solid fa-pencil"></i></button>
+                           <button onclick="handleDelete('decuong', ${s.id})" class="text-red-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </li>`).join('') + `</ul>`;
+            } else { html += `<p class="text-gray-400">Học sinh này chưa có đề cương nào.</p>`; }
+            detailsEl.innerHTML = html;
+            document.querySelectorAll('#dashboard-users-list li').forEach(el => el.classList.remove('bg-indigo-600'));
+            event.currentTarget.parentElement.classList.add('bg-indigo-600');
+        }
+
+        function renderKnowledge(knowledgeData) {
+            const listEl = document.getElementById('knowledge-list');
+            listEl.innerHTML = knowledgeData.results.map(k => `
+                <li class="group bg-gray-800 p-3 rounded-lg flex justify-between items-center">
+                    <span>${k.Name} <span class="text-sm text-gray-400">- ${k.Notes}</span></span>
+                     <div class="flex items-center space-x-2">
+                       <button onclick="openModal('giaokhoa', ${k.id})" class="text-blue-400 hover:text-blue-300"><i class="fa-solid fa-pencil"></i></button>
+                       <button onclick="handleDelete('giaokhoa', ${k.id})" class="text-red-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </li>`).join('');
+        }
+
+        function renderAutomation(thoiquenData, kiemtraData) {
+            const groupData = (data, key) => data.reduce((acc, item) => {
+                (acc[item[key]] = acc[item[key]] || []).push(item);
+                return acc;
+            }, {});
+
+            const renderGroup = (groupedData, type) => Object.entries(groupedData).map(([method, items]) => `
+                <li class="bg-gray-800 p-3 rounded-lg">
+                    <div class="collapsible-header flex justify-between items-center" onclick="this.nextElementSibling.classList.toggle('show')">
+                        <strong>${method}</strong> <i class="fa-solid fa-chevron-down"></i>
+                    </div>
+                    <div class="collapsible-content space-y-2">
+                        ${items.map(item => `
+                            <div class="group bg-gray-900 p-2 rounded-lg flex justify-between items-center">
+                                <span>${item[type]} - <span class="text-sm text-gray-400">${item.chitiet}</span></span>
+                                <div class="flex items-center space-x-2">
+                                    <button onclick="openModal('${type === 'thoiquen' ? 'thoiquen' : 'kiemtra'}', ${item.id})" class="text-blue-400 hover:text-blue-300"><i class="fa-solid fa-pencil"></i></button>
+                                    <button onclick="handleDelete('${type === 'thoiquen' ? 'thoiquen' : 'kiemtra'}', ${item.id})" class="text-red-500 hover:text-red-400"><i class="fa-solid fa-trash"></i></button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </li>`).join('');
+            
+            document.getElementById('automation-processes').innerHTML = renderGroup(groupData(thoiquenData, 'phuongphap'), 'thoiquen');
+            document.getElementById('automation-projects').innerHTML = renderGroup(groupData(kiemtraData, 'phuongphap'), 'kiemtra');
+        }
+
+        // --- MODAL & GENERIC CRUD LOGIC ---
+        const modal = document.getElementById('generic-modal'), modalTitle = document.getElementById('modal-title'),
+              modalBody = document.getElementById('modal-body'), modalItemId = document.getElementById('modal-item-id'),
+              modalItemType = document.getElementById('modal-item-type');
+        
+        async function openModal(type, id = null, preselectedUserId = null) {
+            modalItemType.value = type; modalBody.innerHTML = ''; let currentData = {};
+            if (id) {
+                modalTitle.textContent = `Chỉnh sửa ${type}`; modalItemId.value = id;
+                currentData = await baserowAPI('GET', TABLE_IDS[type], `${id}/`);
+            } else {
+                modalTitle.textContent = `Tạo mới ${type}`; modalItemId.value = '';
+            }
+            
+            const fields = {
+                nguoidung: [ { name: 'email', label: 'Email', type: 'email' }, { name: 'pass', label: 'Mật khẩu', type: 'password' } ],
+                decuong: [ { name: 'Name', label: 'Tên đề cương', type: 'text' }, { name: 'nguoidung', label: 'Học sinh', type: 'select', options: allStudents.map(s=>({value: s.id, text: s.email})) }, { name: 'Notes', label: 'Nội dung (HTML)', type: 'textarea', rows: 6 }, { name: 'baitap', label: 'Bài tập', type: 'textarea', rows: 3 } ],
+                giaokhoa: [ { name: 'Name', label: 'Tên tài liệu', type: 'text' }, { name: 'Notes', label: 'Ghi chú', type: 'textarea', rows: 5 } ],
+                thoiquen: [ { name: 'phuongphap_choice', type: 'radio_select', options: allLearningMethods}, { name: 'thoiquen', label: 'Thói quen', type: 'text' }, { name: 'chitiet', label: 'Chi tiết', type: 'textarea', rows: 4 } ],
+                kiemtra: [ { name: 'phuongphap_choice', type: 'radio_select', options: allAssessmentMethods}, { name: 'kiemtra', label: 'Bài kiểm tra', type: 'text' }, { name: 'chitiet', label: 'Chi tiết', type: 'textarea', rows: 4 } ]
+            };
+
+            fields[type].forEach(field => {
+                const value = currentData[field.name] || (field.name === 'phuongphap' ? currentData.phuongphap : ''); let fieldHtml = '';
+                if (field.type === 'textarea') fieldHtml = `<label class="block text-sm font-medium">${field.label}</label><textarea name="${field.name}" rows="${field.rows || 3}" class="w-full bg-gray-800 text-white rounded-lg p-2 mt-1">${value}</textarea>`;
+                else if (field.type === 'select') {
+                    const currentValues = currentData[field.name]?.map(item => item.id) || (preselectedUserId ? [preselectedUserId] : []);
+                    const optionsHtml = field.options.map(opt => `<option value="${opt.value}" ${currentValues.includes(opt.value) ? 'selected' : ''}>${opt.text}</option>`).join('');
+                    fieldHtml = `<label class="block text-sm font-medium">${field.label}</label><select name="${field.name}" multiple class="w-full bg-gray-800 text-white rounded-lg p-2 mt-1 h-32">${optionsHtml}</select>`;
+                } else if (field.type === 'radio_select') {
+                    const optionsHtml = field.options.map(opt => `<option value="${opt}">${opt}</option>`).join('');
+                    fieldHtml = `
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Phương pháp</label>
+                            <div class="flex items-center space-x-4">
+                                <label><input type="radio" name="phuongphap_option" value="existing" checked class="mr-1"> Chọn từ danh sách</label>
+                                <label><input type="radio" name="phuongphap_option" value="new" class="mr-1"> Tạo mới</label>
+                            </div>
+                            <select name="phuongphap_existing" class="w-full bg-gray-800 text-white rounded-lg p-2 mt-2">${optionsHtml}</select>
+                            <input type="text" name="phuongphap_new" placeholder="Nhập tên phương pháp mới" class="w-full bg-gray-800 text-white rounded-lg p-2 mt-2 hidden">
+                        </div>
+                    `;
+                } else fieldHtml = `<label class="block text-sm font-medium">${field.label}</label><input type="${field.type}" name="${field.name}" value="${value}" class="w-full bg-gray-800 text-white rounded-lg p-2 mt-1" autocomplete="new-password">`;
+                modalBody.innerHTML += `<div>${fieldHtml}</div>`;
+            });
+            
+            const form = document.getElementById('modal-form');
+            if (type === 'decuong') addAIGenerationButton(form, 'Name', ['Notes', 'baitap'], (name) => `Phân tích yêu cầu sau và trả về một đối tượng JSON: { "notes": "...", "baitap": "..."}. Trong đó 'notes' là một đề cương chi tiết dạng HTML về chủ đề "${name}", không chứa inline style, ngắn gọn, ưu tiên dùng sơ đồ tư duy, flowchart. 'baitap' là 3-5 bài tập liên quan đến đề cương đó.`);
+            if (type === 'giaokhoa') addAIGenerationButton(form, 'Name', ['Notes'], (name) => `Viết một tài liệu giảng dạy chi tiết về chủ đề "${name}". Trình bày rõ ràng, dễ hiểu.`);
+            if (type === 'thoiquen') addAIGenerationButton(form, 'thoiquen', ['chitiet'], (name) => `Mô tả chi tiết về phương pháp học tập hoặc thói quen có tên "${name}".`);
+            if (type === 'kiemtra') addAIGenerationButton(form, 'kiemtra', ['chitiet'], (name) => `Mô tả chi tiết về phương pháp kiểm tra năng lực có tên "${name}".`);
+            
+            form.querySelectorAll('[name="phuongphap_option"]').forEach(radio => {
+                radio.addEventListener('change', e => {
+                    const isNew = e.target.value === 'new';
+                    form.querySelector('[name="phuongphap_existing"]').style.display = isNew ? 'none' : 'block';
+                    form.querySelector('[name="phuongphap_new"]').style.display = isNew ? 'block' : 'none';
+                });
+            });
+
+            modal.classList.remove('hidden');
+        }
+        
+        function addAIGenerationButton(form, inputName, textareaNames, promptTemplate) {
+            const input = form.querySelector(`[name="${inputName}"]`);
+            if (!input) return;
+            const textareas = textareaNames.map(name => form.querySelector(`[name="${name}"]`)).filter(Boolean);
+            if (textareas.length === 0) return;
+
+            const button = document.createElement('button');
+            button.type = 'button'; button.className = 'ai-gen-btn';
+            button.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i><span>Gợi ý bằng AI</span>`;
+            button.addEventListener('click', async () => {
+                const topic = input.value;
+                if (!topic) { alert('Vui lòng nhập tên chủ đề trước.'); return; }
+                button.disabled = true; button.innerHTML = `<div class="loader w-4 h-4" style="border-width: 2px;"></div><span>Đang tạo...</span>`;
+                try {
+                    const prompt = promptTemplate(topic);
+                    const responseText = await callGemini(prompt);
+                    
+                    if (textareaNames.length > 1) { // JSON response for syllabus
+                         const cleanedJsonString = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+                         const responseJson = JSON.parse(cleanedJsonString);
+                         textareas[0].value = responseJson.notes || '';
+                         textareas[1].value = responseJson.baitap || '';
+                    } else { // Plain text response for others
+                        textareas[0].value = responseText.replace(/```html/g, '').replace(/```/g, '').trim();
+                    }
+                } catch (e) {
+                    console.error("AI Generation Error: ", e);
+                    alert('Không thể tạo nội dung bằng AI. Vui lòng kiểm tra lại định dạng hoặc thử lại.');
+                } finally {
+                    button.disabled = false; button.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i><span>Gợi ý bằng AI</span>`;
+                }
+            });
+            input.parentElement.appendChild(button);
+        }
+
+        function closeModal() { modal.classList.add('hidden'); }
+
+        document.getElementById('modal-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = modalItemId.value; const type = modalItemType.value;
+            const formData = new FormData(e.target); const data = {};
+            for (let [key, value] of formData.entries()) {
+                if (key === 'nguoidung') data[key] = formData.getAll(key).map(Number);
+                else if (!key.includes('phuongphap_')) data[key] = value;
+            }
+            if (type === 'thoiquen' || type === 'kiemtra') {
+                data.phuongphap = formData.get('phuongphap_option') === 'new' ? formData.get('phuongphap_new') : formData.get('phuongphap_existing');
+            }
+            if (type === 'nguoidung' && !id && studentRoleId) data.role = studentRoleId;
+            
+            try {
+                if (id) await baserowAPI('PATCH', TABLE_IDS[type], `${id}/`, data);
+                else await baserowAPI('POST', TABLE_IDS[type], '', data);
+                
+                closeModal(); 
+                await fetchAndRenderAll();
+
+                // After fetching, refresh the dashboard detail view if necessary
+                if (currentDashboardUserId) {
+                    const student = allStudents.find(s => s.id === currentDashboardUserId);
+                    if (student) {
+                       const dummyEvent = { preventDefault: () => {}, currentTarget: document.querySelector(`#dashboard-users-list a[onclick*="(${currentDashboardUserId},"]`)?.parentElement };
+                       if(dummyEvent.currentTarget) showStudentSyllabuses(dummyEvent, student.id, student.email);
+                    } else { // The user was deleted
+                        document.getElementById('dashboard-syllabus-details').innerHTML = '<p class="text-gray-400">Chọn một học sinh để xem chi tiết.</p>';
+                        currentDashboardUserId = null;
+                    }
+                }
+            } catch (error) {
+                console.error(`Failed to save ${type}:`, error); alert(`Lỗi: Không thể lưu dữ liệu.`);
+            }
+        });
+        
+        async function handleDelete(type, id) {
+            if (confirm(`Bạn có chắc chắn muốn xóa mục này không?`)) {
+                try {
+                    const wasViewingDeletedUser = (type === 'nguoidung' && id === currentDashboardUserId);
+                    await baserowAPI('DELETE', TABLE_IDS[type], `${id}/`);
+                    await fetchAndRenderAll();
+
+                    if (wasViewingDeletedUser) {
+                        document.getElementById('dashboard-syllabus-details').innerHTML = '<p class="text-gray-400">Chọn một học sinh để xem chi tiết.</p>';
+                        currentDashboardUserId = null;
+                    } else if (currentDashboardUserId) {
+                         const student = allStudents.find(s => s.id === currentDashboardUserId);
+                         if (student) {
+                            const dummyEvent = { preventDefault: () => {}, currentTarget: document.querySelector(`#dashboard-users-list a[onclick*="(${currentDashboardUserId},"]`)?.parentElement };
+                            if(dummyEvent.currentTarget) showStudentSyllabuses(dummyEvent, student.id, student.email);
+                         }
+                    }
+                } catch (error) {
+                    console.error(`Failed to delete ${type}:`, error); alert(`Lỗi: Không thể xóa dữ liệu.`);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
+
